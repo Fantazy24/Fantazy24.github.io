@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>保齡球計分</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin: 10px 0;
+            font-size: 1.5rem;
+        }
+        .button-container {
+            margin-bottom: 15px;
+            text-align: center;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+        }
+        button {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 2px;
+            font-size: 0.9rem;
+        }
+        button:hover {
+            background-color: #27ae60;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            margin-left: 5px;
+            font-size: 0.8rem;
+            padding: 3px 6px;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        /* 可滾動的表格容器 */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            position: relative;
+        }
+        
+        table {
+            min-width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            margin-top: 10px;
+            table-layout: fixed;
+        }
+        th, td {
+            border: 1px solid #95a5a6;
+            padding: 6px 3px;
+            font-size: 0.9rem;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .player-name {
+            font-weight: bold;
+            background-color: #ecf0f1;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+        }
+        .player-name-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .frame-cell {
+            position: relative;
+            height: 60px;
+            background-color: #f8f9fa;
+        }
+        
+        .roll-display {
+            width: 22px;
+            height: 22px;
+            text-align: center;
+            display: inline-block;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            line-height: 22px;
+            cursor: pointer;
+            background-color: #fff;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 767px) {
+            .roll-display {
+                width: 20px;
+                height: 20px;
+                line-height: 20px;
+                font-size: 0.85rem;
+            }
+            .tenth-frame-cell .roll-display {
+                width: 18px;
+                height: 18px;
+                line-height: 18px;
+            }
+        }
+        
+        .roll-buttons {
+            display: none;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #f9f9f9;
+            border-top: 2px solid #3498db;
+            padding: 10px;
+            z-index: 100;
+            text-align: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .roll-buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+        
+        .special-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+            max-width: 300px;
+            margin: 8px auto 0;
+        }
+        
+        .roll-btn {
+            padding: 12px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            background-color: #fff;
+            font-size: 1.1rem;
+        }
+        
+        .roll-btn:hover, .roll-btn:active {
+            background-color: #e0e0e0;
+        }
+        
+        .roll-btn.strike {
+            color: red;
+            font-weight: bold;
+            grid-column: span 2;
+        }
+        
+        .roll-btn.spare {
+            color: blue;
+            font-weight: bold;
+            grid-column: span 2;
+        }
+        
+        .roll-btn.cancel {
+            background-color: #e74c3c;
+            color: white;
+            grid-column: span 4;
+            margin-top: 8px;
+        }
+        
+        .frame-score {
+            position: absolute;
+            bottom: 5px;
+            left: 0;
+            right: 0;
+            font-weight: bold;
+            color: #2980b9;
+            font-size: 0.9rem;
+        }
+        
+        .total-score {
+            font-weight: bold;
+            background-color: #e67e22;
+            color: white;
+            position: sticky;
+            right: 0;
+            z-index: 2;
+        }
+        
+        .tenth-frame-cell {
+            min-width: 70px;
+        }
+        
+        .strike, .spare {
+            font-weight: bold;
+        }
+        .strike {
+            color: red;
+        }
+        .spare {
+            color: blue;
+        }
+        
+        /* 遮罩背景 */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 50;
+            display: none;
+        }
+        
+        @media (min-width: 768px) {
+            .roll-buttons {
+                position: absolute;
+                left: auto;
+                right: auto;
+                bottom: auto;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                max-width: 300px;
+            }
+            .overlay {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h2>保齡球計分系統</h2>
+    
+    <div class="button-container">
+        <button onclick="addPlayer()">新增玩家</button>
+        <button onclick="resetGame()">重新開始</button>
+        <button onclick="saveGame()">儲存遊戲</button>
+        <button onclick="loadGame()">載入遊戲</button>
+		<button onclick="clearScores()">清空分數</button>
+    </div>
+    
+    <div class="table-container">
+        <table id="scoreboard">
+            <thead>
+                <tr>
+                    <th>玩家</th>
+                    <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+                    <th>總分</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+    
+    <div id="overlay" class="overlay"></div>
+    
+    <div id="roll-buttons" class="roll-buttons">
+        <div class="roll-buttons-grid">
+            <div class="roll-btn" data-value="0">0</div>
+            <div class="roll-btn" data-value="1">1</div>
+            <div class="roll-btn" data-value="2">2</div>
+            <div class="roll-btn" data-value="3">3</div>
+            <div class="roll-btn" data-value="4">4</div>
+            <div class="roll-btn" data-value="5">5</div>
+            <div class="roll-btn" data-value="6">6</div>
+            <div class="roll-btn" data-value="7">7</div>
+            <div class="roll-btn" data-value="8">8</div>
+            <div class="roll-btn" data-value="9">9</div>
+        </div>
+        <div class="special-buttons">
+            <div class="roll-btn strike" data-value="X">全倒 (X)</div>
+            <div class="roll-btn spare" data-value="/">補中 (/)</div>
+        </div>
+        <div class="roll-btn cancel" onclick="hideRollButtons()">取消</div>
+    </div>
+    
+    <script>
+        let players = [];
+        let currentPlayerIndex = null;
+        let currentRollIndex = null;
+        
+        function addPlayer() {
+            const playerName = prompt("輸入玩家名稱:");
+            if (!playerName) return;
+            
+            let table = document.getElementById("scoreboard").getElementsByTagName('tbody')[0];
+            let row = table.insertRow();
+            let cell = row.insertCell(0);
+            cell.className = "player-name";
+            cell.innerHTML = `<div class="player-name-content">${playerName} <button class="delete-btn" onclick="deletePlayer(this)">刪除</button></div>`;
+            
+            let playerData = { 
+                name: playerName, 
+                rolls: Array(21).fill(null),  // 儲存每一投的分數
+                total: 0 
+            };
+            players.push(playerData);
+            let playerIndex = players.length - 1;
+            
+            // 前9局
+            for (let i = 0; i < 9; i++) {
+                let frameCell = row.insertCell(i + 1);
+                frameCell.className = "frame-cell";
+                frameCell.innerHTML = `
+                    <div class="roll-display" data-player="${playerIndex}" data-roll="${i*2}" onclick="showRollButtons(this)">&nbsp;</div>
+                    <div class="roll-display" data-player="${playerIndex}" data-roll="${i*2+1}" onclick="showRollButtons(this)">&nbsp;</div>
+                    <div class="frame-score" id="player-${playerIndex}-frame-${i}"></div>
+                `;
+            }
+            
+            // 第10局
+            let tenthFrameCell = row.insertCell(10);
+            tenthFrameCell.className = "frame-cell tenth-frame-cell";
+            tenthFrameCell.innerHTML = `
+                <div class="roll-display" data-player="${playerIndex}" data-roll="18" onclick="showRollButtons(this)">&nbsp;</div>
+                <div class="roll-display" data-player="${playerIndex}" data-roll="19" onclick="showRollButtons(this)">&nbsp;</div>
+                <div class="roll-display" data-player="${playerIndex}" data-roll="20" onclick="showRollButtons(this)">&nbsp;</div>
+                <div class="frame-score" id="player-${playerIndex}-frame-9"></div>
+            `;
+            
+            // 總分
+            let totalCell = row.insertCell(11);
+            totalCell.className = "total-score";
+            totalCell.id = `player-${playerIndex}-total`;
+            totalCell.innerText = "0";
+        }
+        
+        function deletePlayer(button) {
+            if (!confirm("確定要刪除此玩家嗎?")) return;
+            
+            let row = button.closest('tr');
+            let playerIndex = Array.from(row.parentNode.children).indexOf(row);
+            
+            players.splice(playerIndex, 1);
+            row.parentNode.removeChild(row);
+        }
+        
+        // 顯示投球選擇按鈕
+        function showRollButtons(display) {
+            currentPlayerIndex = parseInt(display.getAttribute('data-player'));
+            currentRollIndex = parseInt(display.getAttribute('data-roll'));
+            
+            // 檢查是否允許輸入
+            if (display.style.cursor === "default") return;
+            
+            let rollButtons = document.getElementById('roll-buttons');
+            let overlay = document.getElementById('overlay');
+            
+            // 根據目前的投球位置啟用/禁用特定按鈕
+            updateAvailableButtons(currentPlayerIndex, currentRollIndex);
+            
+            // 在桌面版時，按鈕顯示在點擊元素附近
+            if (window.innerWidth >= 768) {
+                let rect = display.getBoundingClientRect();
+                rollButtons.style.position = 'absolute';
+                rollButtons.style.bottom = 'auto';
+                rollButtons.style.top = (rect.bottom + window.scrollY) + 'px';
+                rollButtons.style.left = (rect.left + window.scrollX) + 'px';
+            } else {
+                // 在移動裝置上，按鈕顯示在底部
+                rollButtons.style.position = 'fixed';
+                rollButtons.style.bottom = '0';
+                rollButtons.style.top = 'auto';
+                rollButtons.style.left = '0';
+                overlay.style.display = 'block';
+            }
+            
+            rollButtons.style.display = 'block';
+        }
+        
+        function hideRollButtons() {
+            document.getElementById('roll-buttons').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+            currentPlayerIndex = null;
+            currentRollIndex = null;
+        }
+        
+        // 根據目前的投球位置更新可用的按鈕
+        function updateAvailableButtons(playerIndex, rollIndex) {
+            let rolls = players[playerIndex].rolls;
+            let strikeBtn = document.querySelector('.roll-btn.strike');
+            let spareBtn = document.querySelector('.roll-btn.spare');
+            
+            // 默認禁用全倒和補中按鈕
+            strikeBtn.style.display = 'none';
+            spareBtn.style.display = 'none';
+            
+            // 處理全倒按鈕
+            if (rollIndex % 2 === 0 || rollIndex >= 18) { // 第一球或第10局可以全倒
+                strikeBtn.style.display = 'block';
+            }
+            
+            // 處理補中按鈕
+            if (rollIndex % 2 === 1 || rollIndex >= 19) { // 第二球或第10局的第二、三球可以補中
+                let prevRoll = rolls[rollIndex - 1];
+                if (prevRoll !== null && prevRoll !== 10) { // 前一球不是全倒才能補中
+                    spareBtn.style.display = 'block';
+                }
+            }
+            
+            // 處理數字按鈕限制
+            let numButtons = document.querySelectorAll('.roll-buttons-grid .roll-btn');
+            // 重置所有數字按鈕
+            numButtons.forEach(btn => {
+                btn.style.display = 'block';
+            });
+            
+            // 如果是第二球且不是第10局
+            if (rollIndex % 2 === 1 && rollIndex < 18) {
+                let prevRoll = rolls[rollIndex - 1];
+                if (prevRoll !== null) {
+                    // 限制數字按鈕，使兩球之和不超過10
+                    numButtons.forEach(btn => {
+                        let value = parseInt(btn.getAttribute('data-value'));
+                        if (prevRoll + value > 10) {
+                            btn.style.display = 'none';
+                        }
+                    });
+                }
+            }
+            
+            // 第10局特殊規則
+            if (rollIndex === 19) { // 第10局第二球
+                let firstBall = rolls[18];
+                if (firstBall !== null && firstBall !== 10) { // 第一球不是全倒
+                    numButtons.forEach(btn => {
+                        let value = parseInt(btn.getAttribute('data-value'));
+                        if (firstBall + value > 10) {
+                            btn.style.display = 'none';
+                        }
+                    });
+                }
+            } else if (rollIndex === 20) { // 第10局第三球
+                let firstBall = rolls[18];
+                let secondBall = rolls[19];
+                
+                // 只有第一球全倒或前兩球補中才能投第三球
+                if (firstBall !== 10 && (firstBall + secondBall) !== 10) {
+                    hideRollButtons(); // 隱藏整個按鈕面板
+                    return;
+                }
+            }
+            
+            // 為所有數字按鈕添加點擊事件
+            numButtons.forEach(btn => {
+                btn.onclick = function() {
+                    updateRollWithButton(this.getAttribute('data-value'));
+                    hideRollButtons();
+                };
+            });
+            
+            // 為特殊按鈕添加點擊事件
+            if (strikeBtn.style.display !== 'none') {
+                strikeBtn.onclick = function() {
+                    updateRollWithButton("X");
+                    hideRollButtons();
+                };
+            }
+            
+            if (spareBtn.style.display !== 'none') {
+                spareBtn.onclick = function() {
+                    updateRollWithButton("/");
+                    hideRollButtons();
+                };
+            }
+        }
+        
+ 
+										
+		// 計算分數的函數
+		function calculateScore(playerIndex) {
+			let rolls = players[playerIndex].rolls;
+			let score = 0;
+
+			// 計算每一局的分數
+			for (let frame = 0; frame < 10; frame++) {
+				let frameScoreElement = document.getElementById(`player-${playerIndex}-frame-${frame}`);
+				
+				// 計算這一局的第一球索引
+				let rollIndex = frame * 2;
+				
+				// 全倒 (Strike)
+				if (rolls[rollIndex] === 10) {
+					// 檢查接下來的兩球
+					let nextBall1 = null;
+					let nextBall2 = null;
+					
+					if (frame === 9) {
+						// 第10局的特殊處理
+						if (rolls[19] !== null) {
+							nextBall1 = rolls[19];
+							if (rolls[20] !== null) {
+								nextBall2 = rolls[20];
+							}
+						}
+					} else {
+						// 前9局
+						let nextFrameIndex = (frame + 1) * 2;
+						if (nextFrameIndex < rolls.length && rolls[nextFrameIndex] !== null) {
+							// 下一局第一球
+							nextBall1 = rolls[nextFrameIndex];
+							
+							if (nextBall1 === 10 && frame < 8) {
+								// 如果下一球也是全倒且不是第9局，則繼續取下一局第一球
+								let nextNextFrameIndex = (frame + 2) * 2;
+								if (nextNextFrameIndex < rolls.length && rolls[nextNextFrameIndex] !== null) {
+									nextBall2 = rolls[nextNextFrameIndex];
+								}
+							} else {
+								// 如果下一球不是全倒或是第9局，則取下一局第二球
+								if (nextFrameIndex + 1 < rolls.length && rolls[nextFrameIndex + 1] !== null) {
+									nextBall2 = rolls[nextFrameIndex + 1];
+								}
+							}
+						}
+					}
+					
+					// 只有在有完整的附加分數時才計算此局總分
+					if (nextBall1 !== null && nextBall2 !== null) {
+						score += 10 + nextBall1 + nextBall2;
+						frameScoreElement.innerText = score;
+					} else {
+						frameScoreElement.innerText = "";
+					}
+				}
+				// 補中 (Spare)
+				else if (rolls[rollIndex] !== null && rolls[rollIndex + 1] !== null && 
+						 rolls[rollIndex] + rolls[rollIndex + 1] === 10) {
+					// 需要下一球的分數
+					let nextBall = null;
+					
+					if (frame === 9) {
+						// 第10局補中
+						if (rolls[20] !== null) {
+							nextBall = rolls[20];
+						}
+					} else {
+						// 前9局補中
+						let nextFrameIndex = (frame + 1) * 2;
+						if (nextFrameIndex < rolls.length && rolls[nextFrameIndex] !== null) {
+							nextBall = rolls[nextFrameIndex];
+						}
+					}
+					
+					// 只有在有下一球的分數時才計算此局總分
+					if (nextBall !== null) {
+						score += 10 + nextBall;
+						frameScoreElement.innerText = score;
+					} else {
+						frameScoreElement.innerText = "";
+					}
+				}
+				// 開放局 (Open Frame)
+				else if (rolls[rollIndex] !== null && rolls[rollIndex + 1] !== null) {
+					score += rolls[rollIndex] + rolls[rollIndex + 1];
+					frameScoreElement.innerText = score;
+				} else {
+					frameScoreElement.innerText = "";
+				}
+			}
+
+			// 更新總分
+			players[playerIndex].total = score;
+			document.getElementById(`player-${playerIndex}-total`).innerText = score;
+		}
+
+		// 更新投球按鈕的函數
+		function updateRollWithButton(value) {
+			if (currentPlayerIndex === null || currentRollIndex === null) return;
+			
+			let playerIndex = currentPlayerIndex;
+			let rollIndex = currentRollIndex;
+			let display = document.querySelector(`[data-player='${playerIndex}'][data-roll='${rollIndex}']`);
+			
+			if (value === "" || value === null) {
+				players[playerIndex].rolls[rollIndex] = null;
+				display.innerHTML = "&nbsp;";
+				display.className = "roll-display";
+				
+				// 如果清除了第10局第一球或第二球，重新啟用第二、三球
+				if (rollIndex === 18 || rollIndex === 19) {
+					let ball2Display = document.querySelector(`[data-player='${playerIndex}'][data-roll='19']`);
+					let ball3Display = document.querySelector(`[data-player='${playerIndex}'][data-roll='20']`);
+					if (ball2Display) {
+						ball2Display.style.backgroundColor = "";
+						ball2Display.style.cursor = "pointer";
+						ball2Display.onclick = function() { showRollButtons(this); };
+					}
+					if (ball3Display) {
+						ball3Display.style.backgroundColor = "";
+						ball3Display.style.cursor = "pointer";
+						ball3Display.onclick = function() { showRollButtons(this); };
+					}
+				}
+				
+				// 如果是一般局的第一球，重新啟用第二球
+				if (rollIndex < 18 && rollIndex % 2 === 0) {
+					let secondBallDisplay = document.querySelector(`[data-player='${playerIndex}'][data-roll='${rollIndex + 1}']`);
+					if (secondBallDisplay) {
+						secondBallDisplay.innerHTML = "&nbsp;";
+						secondBallDisplay.style.backgroundColor = "";
+						secondBallDisplay.style.cursor = "pointer";
+						secondBallDisplay.onclick = function() { showRollButtons(this); };
+						players[playerIndex].rolls[rollIndex + 1] = null;
+					}
+				}
+				
+				calculateScore(playerIndex);
+				return;
+			}
+			
+			if (value === "X") {
+				players[playerIndex].rolls[rollIndex] = 10;
+				display.innerText = "X";
+				display.className = "roll-display strike";
+				
+				// 如果不是第10局，第一球就全倒，就禁用第二球輸入
+				if (rollIndex < 18 && rollIndex % 2 === 0) {
+					let nextDisplay = document.querySelector(`[data-player='${playerIndex}'][data-roll='${rollIndex + 1}']`);
+					nextDisplay.innerHTML = "&nbsp;";
+					nextDisplay.style.backgroundColor = "#eee";
+					nextDisplay.style.cursor = "default";
+					nextDisplay.onclick = null;
+					players[playerIndex].rolls[rollIndex + 1] = 0; // 設為0，不影響計分
+				}
+			} else if (value === "/") {
+				let prevRoll = players[playerIndex].rolls[rollIndex - 1];
+				players[playerIndex].rolls[rollIndex] = 10 - prevRoll;
+				display.innerText = "/";
+				display.className = "roll-display spare";
+			} else {
+				let numValue = parseInt(value);
+				players[playerIndex].rolls[rollIndex] = numValue;
+				display.innerText = numValue;
+				display.className = "roll-display";
+				
+				// 第10局特殊處理
+				if (rollIndex === 18 || rollIndex === 19) {
+					// 檢查是否允許第三球
+					let firstBall = players[playerIndex].rolls[18];
+					let secondBall = rollIndex === 19 ? numValue : players[playerIndex].rolls[19];
+					
+					let thirdBallDisplay = document.querySelector(`[data-player='${playerIndex}'][data-roll='20']`);
+					
+					// 如果第一球不是全倒且兩球和不是補中，禁用第三球
+					if (firstBall !== 10 && firstBall !== null && secondBall !== null && (firstBall + secondBall) < 10) {
+						thirdBallDisplay.innerHTML = "&nbsp;";
+						thirdBallDisplay.style.backgroundColor = "#eee";
+						thirdBallDisplay.style.cursor = "default";
+						thirdBallDisplay.onclick = null;
+						players[playerIndex].rolls[20] = null;
+					} else {
+						thirdBallDisplay.style.backgroundColor = "";
+						thirdBallDisplay.style.cursor = "pointer";
+						thirdBallDisplay.onclick = function() { showRollButtons(this); };
+					}
+				}
+			}
+			
+			calculateScore(playerIndex);
+		}
+
+        // 輔助函數：獲取下一個有效的擊球分數
+        function getNextRoll(rolls, rollIndex) {
+            // 如果已經超出了所有球的範圍，返回null
+            if (rollIndex >= rolls.length) return null;
+            
+            // 如果是非第10局的第二球位置，且前一球是全倒，則跳到下一局的第一球
+            if (rollIndex < 18 && rollIndex % 2 === 1 && rolls[rollIndex - 1] === 10) {
+                return getNextRoll(rolls, rollIndex + 1);
+            }
+            
+            return rolls[rollIndex];
+        }
+        
+        function resetGame() {
+            if (!confirm("確定要重新開始遊戲嗎？所有分數將被清除。")) return;
+            
+            players = [];
+            let tbody = document.getElementById("scoreboard").getElementsByTagName('tbody')[0];
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
+            }
+        }
+        
+        function saveGame() {
+            let gameData = JSON.stringify(players);
+            localStorage.setItem('bowlingGame', gameData);
+            alert("遊戲已儲存！");
+        }
+        
+        function loadGame() {
+            let gameData = localStorage.getItem('bowlingGame');
+            if (!gameData) {
+                alert("沒有找到儲存的遊戲。");
+                return;
+            }
+            
+            resetGame();
+            players = JSON.parse(gameData);
+            
+            let tbody = document.getElementById("scoreboard").getElementsByTagName('tbody')[0];
+            
+            // 重建玩家資料
+            players.forEach((player, playerIndex) => {
+                let row = tbody.insertRow();
+                let cell = row.insertCell(0);
+                cell.className = "player-name";
+                cell.innerHTML = `<div class="player-name-content">${player.name} <button class="delete-btn" onclick="deletePlayer(this)">刪除</button></div>`;
+                
+                // 前9局
+                for (let i = 0; i < 9; i++) {
+                    let frameCell = row.insertCell(i + 1);
+                    frameCell.className = "frame-cell";
+                    frameCell.innerHTML = `
+                        <div class="roll-display" data-player="${playerIndex}" data-roll="${i*2}" onclick="showRollButtons(this)">&nbsp;</div>
+                        <div class="roll-display" data-player="${playerIndex}" data-roll="${i*2+1}" onclick="showRollButtons(this)">&nbsp;</div>
+                        <div class="frame-score" id="player-${playerIndex}-frame-${i}"></div>
+                    `;
+                }
+                
+                // 第10局
+                let tenthFrameCell = row.insertCell(10);
+                tenthFrameCell.className = "frame-cell tenth-frame-cell";
+                tenthFrameCell.innerHTML = `
+                    <div class="roll-display" data-player="${playerIndex}" data-roll="18" onclick="showRollButtons(this)">&nbsp;</div>
+                    <div class="roll-display" data-player="${playerIndex}" data-roll="19" onclick="showRollButtons(this)">&nbsp;</div>
+                    <div class="roll-display" data-player="${playerIndex}" data-roll="20" onclick="showRollButtons(this)">&nbsp;</div>
+                    <div class="frame-score" id="player-${playerIndex}-frame-9"></div>
+                `;
+                
+                // 總分
+                let totalCell = row.insertCell(11);
+                totalCell.className = "total-score";
+                totalCell.id = `player-${playerIndex}-total`;
+                totalCell.innerText = player.total || "0";
+                
+                // 填入已有的分數
+                for (let i = 0; i < player.rolls.length; i++) {
+                    if (player.rolls[i] !== null) {
+                        let display = document.querySelector(`[data-player='${playerIndex}'][data-roll='${i}']`);
+                        if (display) {
+                            if (player.rolls[i] === 10 && (i % 2 === 0 || i >= 18)) {
+                                display.innerText = "X";
+                                display.className = "roll-display strike";
+                                
+                                // 如果不是第10局，禁用第二球輸入
+                                if (i < 18 && i % 2 === 0) {
+                                    let nextDisplay = document.querySelector(`[data-player='${playerIndex}'][data-roll='${i + 1}']`);
+                                    nextDisplay.style.backgroundColor = "#eee";
+                                    nextDisplay.style.cursor = "default";
+                                    nextDisplay.onclick = null;
+                                }
+                            } else if (i % 2 === 1 && player.rolls[i - 1] !== null && player.rolls[i] + player.rolls[i - 1] === 10) {
+                                display.innerText = "/";
+                                display.className = "roll-display spare";
+                            } else {
+                                display.innerText = player.rolls[i];
+                            }
+                        }
+                    }
+                }
+                
+                // 計算分數
+                calculateScore(playerIndex);
+            });
+            
+            alert("遊戲已載入！");
+        }
+        
+        // 點擊遮罩時隱藏按鈕
+        document.getElementById('overlay').addEventListener('click', hideRollButtons);
+        
+        // 頁面載入時檢查是否有儲存的遊戲
+        window.onload = function() {
+            if (localStorage.getItem('bowlingGame')) {
+                if (confirm("發現儲存的遊戲，是否載入？")) {
+                    loadGame();
+                }
+            }
+        };
+		
+	function clearScores() {
+		if (!confirm("確定要清空所有分數嗎？")) return;
+		
+		players.forEach((player, index) => {
+			// 清空所有投球分數
+			player.rolls.fill(null);
+			player.total = 0; // 重置總分
+
+			// 更新顯示，清空所有投球顯示
+			for (let i = 0; i < 21; i++) {
+				let display = document.querySelector(`[data-player='${index}'][data-roll='${i}']`);
+				if (display) {
+					display.innerHTML = "&nbsp;";
+					display.className = "roll-display";
+					display.style.backgroundColor = "";
+					display.style.cursor = "pointer";
+					display.onclick = function() { showRollButtons(this); };
+				}
+			}
+			
+			// 清空每局分數
+			for (let frame = 0; frame < 10; frame++) {
+				let frameCell = document.getElementById(`player-${index}-frame-${frame}`);
+				if (frameCell) {
+					frameCell.innerText = "";
+				}
+			}
+			
+			// 重置總分
+			let totalCell = document.getElementById(`player-${index}-total`);
+			if (totalCell) {
+				totalCell.innerText = "0";
+			}
+		});
+		
+		// 更新全倒指示器
+		if (players.length >= 2) {
+			updateStrikeIndicator();
+		}
+	}
+
+    </script>
+	<!-- HTML 部分：在表格中加入最下面的行 -->
+<script>
+    // 原有的函數和變數保持不變
+    
+    // 新增函數：更新全倒指示器行
+    function updateStrikeIndicator() {
+    let table = document.getElementById("scoreboard");
+    let tbody = table.getElementsByTagName('tbody')[0];
+    
+    // 檢查是否已經存在指示器行，若不存在則創建
+    let indicatorRow = document.getElementById("strike-indicator-row");
+    if (!indicatorRow) {
+        indicatorRow = document.createElement("tr");
+        indicatorRow.id = "strike-indicator-row";
+        
+        // 建立第一個儲存格(標籤)
+        let labelCell = document.createElement("td");
+        labelCell.className = "player-name";
+        labelCell.innerHTML = "全倒指示";
+        indicatorRow.appendChild(labelCell);
+        
+        // 建立每一局的儲存格
+        for (let i = 0; i < 10; i++) {
+            let cell = document.createElement("td");
+            cell.className = "frame-cell";
+            cell.id = `strike-indicator-${i}`;
+            indicatorRow.appendChild(cell);
+        }
+        
+        // 建立總分儲存格(保持一致性)
+        let totalCell = document.createElement("td");
+        totalCell.className = "total-score";
+        indicatorRow.appendChild(totalCell);
+        
+        // 將指示器行添加到表格的最後
+        tbody.appendChild(indicatorRow);
+    } else {
+        // 如果指示器行已存在，則移動到最後一行
+        tbody.appendChild(indicatorRow);
+    }
+    
+    // 更新每一局的全倒指示
+    for (let frame = 0; frame < 10; frame++) {
+        // 計算這一局的第一球索引
+        let rollIndex = frame * 2;
+        
+        // 收集這一局中全倒的玩家
+        let strikePlayerNames = [];
+        for (let playerIndex = 0; playerIndex < players.length; playerIndex++) {
+            // 檢查是否為全倒
+            if (players[playerIndex].rolls[rollIndex] === 10) {
+                strikePlayerNames.push(players[playerIndex].name);
+            }
+        }
+        
+        // 設置顯示的文字
+        let cell = document.getElementById(`strike-indicator-${frame}`);
+        if (strikePlayerNames.length === 0) {
+            cell.innerHTML = "&nbsp;";
+        } else if (strikePlayerNames.length === 1) {
+            cell.innerHTML = strikePlayerNames[0];
+        } else if (players.length <= 7 || strikePlayerNames.length > 2) {
+            cell.innerHTML = "-";
+        } else {
+            // 七人以上且恰好有兩位玩家全倒
+            cell.innerHTML = `${strikePlayerNames[0]},${strikePlayerNames[1]}`;
+        }
+    }
+}
+
+    
+    // 修改 calculateScore 函數，添加對指示器行的更新
+    let originalCalculateScore = calculateScore;
+    calculateScore = function(playerIndex) {
+        originalCalculateScore(playerIndex);
+        
+        // 只有當有至少兩名玩家時才顯示指示器行
+        if (players.length >= 2) {
+            updateStrikeIndicator();
+        } else {
+            // 如果只有一名玩家，移除指示器行
+            let indicatorRow = document.getElementById("strike-indicator-row");
+            if (indicatorRow) {
+                indicatorRow.remove();
+            }
+        }
+    };
+    
+    // 修改 resetGame 函數，確保重設時也會清除指示器行
+    let originalResetGame = resetGame;
+    resetGame = function() {
+        if (!confirm("確定要重新開始遊戲嗎？所有分數將被清除。")) return;
+        
+        // 使用原始的重設函數
+        originalResetGame();
+        
+        // 移除指示器行
+        let indicatorRow = document.getElementById("strike-indicator-row");
+        if (indicatorRow) {
+            indicatorRow.remove();
+        }
+    };
+    
+    // 修改 deletePlayer 函數，確保刪除玩家後更新指示器行
+    let originalDeletePlayer = deletePlayer;
+    deletePlayer = function(button) {
+        originalDeletePlayer(button);
+        
+        // 只有當有至少兩名玩家時才顯示指示器行
+        if (players.length >= 2) {
+            updateStrikeIndicator();
+        } else {
+            // 如果只有一名玩家，移除指示器行
+            let indicatorRow = document.getElementById("strike-indicator-row");
+            if (indicatorRow) {
+                indicatorRow.remove();
+            }
+        }
+    };
+    
+    // 修改 addPlayer 函數，確保添加玩家後更新指示器行
+    let originalAddPlayer = addPlayer;
+    addPlayer = function() {
+        originalAddPlayer();
+        
+        // 只有當有至少兩名玩家時才顯示指示器行
+        if (players.length >= 2) {
+            updateStrikeIndicator();
+        }
+    };
+    
+    // 修改 loadGame 函數，確保載入遊戲後更新指示器行
+    let originalLoadGame = loadGame;
+    loadGame = function() {
+        originalLoadGame();
+        
+        // 只有當有至少兩名玩家時才顯示指示器行
+        if (players.length >= 2) {
+            updateStrikeIndicator();
+        }
+    };
+</script>
+
+</body>
+</html>
